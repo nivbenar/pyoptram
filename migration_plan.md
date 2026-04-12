@@ -54,9 +54,9 @@ optram()  # main wrapper
 
 ## My work plan:
 ### Phase 1 - Understanding 
-- [] Analyze `optram()`
-- [] Understand the full workflow
-- [] Identify that `optram()` is a wrapper
+- [ ] Analyze `optram()`
+- [ ] Understand the full workflow
+- [ ] Identify that `optram()` is a wrapper
 
 ### Phase 2 - Core Implementation (CURRENT)
 - [ ] calculate_str()
