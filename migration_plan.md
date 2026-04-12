@@ -52,27 +52,26 @@ optram()  # main wrapper
 
 ---
 
-## Work Plan
+## My work plan:
+### Phase 1 - Understanding 
+- [] Analyze `optram()`
+- [] Understand the full workflow
+- [] Identify that `optram()` is a wrapper
 
-### Phase 1 — Understanding ✔
-- [x] Analyze `optram()`
-- [x] Understand the full workflow
-- [x] Identify that `optram()` is a wrapper
-
-### Phase 2 — Core Implementation (CURRENT)
+### Phase 2 - Core Implementation (CURRENT)
 - [ ] calculate_str()
 - [ ] calculate_vi()
 - [ ] build_vi_str_dataframe()
 
-### Phase 3 — Modeling
+### Phase 3 - Modeling
 - [ ] fit_trapezoid()
 - [ ] calculate_soil_moisture()
 
-### Phase 4 — Integration
+### Phase 4 - Integration
 - [ ] OPTRAMModel / wrapper
 - [ ] package structure
 
-### Phase 5 — Data Acquisition
+### Phase 5 - Data Acquisition
 - [ ] Sentinel-2 API (CDSE)
 - [ ] credentials handling
 - [ ] local SAFE workflow
