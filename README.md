@@ -1,2 +1,2 @@
 # pyoptram
-Python implementation of the OPTRAM soil moisture model (based on rOPTRAM)
+This is pyOPTRAMS - similar to rOPTRAM but in python :=)
