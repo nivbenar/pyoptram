@@ -1,4 +1,4 @@
-# rOPTRAM → Python migration plan
+# rOPTRAM → Python convertion plan
 
 ## Goal
 Convert the rOPTRAM R package into a Python module with similar functionality and workflow.
