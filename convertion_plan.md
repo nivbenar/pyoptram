@@ -57,7 +57,7 @@ optram()  # main wrapper
 - [ ] Analyze `optram()`
 - [ ] Understand the full workflow
 - [ ] Identify that `optram()` is a wrapper
-
+- [ ] Adding run file, make a function for automatic cdse credentials
 ### Phase 2 - Core Implementation (CURRENT)
 - [ ] calculate_str()
 - [ ] calculate_vi()
