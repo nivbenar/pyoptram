@@ -1,4 +1,4 @@
-from .acquire import acquire_optram_inputs
+from .acquire import acquire_optram_inputs, get_cdse_token
 from .str_transform_calculations import calculate_str, optram_calculate_str
 
 ## pyOPTRAM Package
@@ -6,6 +6,7 @@ from .str_transform_calculations import calculate_str, optram_calculate_str
 
 __all__ = [
     "acquire_optram_inputs",
+    "get_cdse_token",
     "calculate_str",
     "optram_calculate_str",
 ]
