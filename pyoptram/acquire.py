@@ -14,6 +14,20 @@ PROCESS_URL = "https://sh.dataspace.copernicus.eu/api/v1/process"
 DEFAULT_MAX_SIZE = 2500
 
 
+def _raise_for_status(response, context):
+    """
+    Raise an HTTP error that includes the server response body.
+    """
+    try:
+        response.raise_for_status()
+    except requests.HTTPError as exc:
+        message = (
+            f"{context} failed with HTTP {response.status_code}: "
+            f"{response.text}"
+        )
+        raise requests.HTTPError(message, response=response) from exc
+
+
 def get_cdse_token(client_id, client_secret):
     """
     Get an access token from Copernicus Data Space.
@@ -28,7 +42,7 @@ def get_cdse_token(client_id, client_secret):
         },
         timeout=30,
     )
-    response.raise_for_status()
+    _raise_for_status(response, "CDSE token request")
     return response.json()["access_token"]
 
 
@@ -259,11 +273,11 @@ def search_catalog(
         "datetime": f"{from_date}T00:00:00Z/{to_date}T23:59:59Z",
         "collections": ["sentinel-2-l2a"],
         "limit": request_limit,
-        "query": {"eo:cloud_cover": {"lte": max_cloud}},
+        "filter": f"eo:cloud_cover <= {max_cloud}",
     }
 
     response = requests.post(CATALOG_URL, headers=headers, json=payload, timeout=60)
-    response.raise_for_status()
+    _raise_for_status(response, "Sentinel-2 catalog search")
     scenes = response.json().get("features", [])
     return _filter_scenes_by_tile(scenes, tile)[:limit]
 
@@ -319,7 +333,7 @@ def download_index(
     }
 
     response = requests.post(PROCESS_URL, headers=headers, json=payload, timeout=180)
-    response.raise_for_status()
+    _raise_for_status(response, f"{script_name} download")
 
     output_path.write_bytes(response.content)
     return str(output_path)
