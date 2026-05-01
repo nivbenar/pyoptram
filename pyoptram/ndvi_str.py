@@ -70,7 +70,7 @@ def optram_ndvi_str(
             & np.isfinite(str_array)
             & (ndvi >= -1)
             & (ndvi <= 1)
-            & (str_array >= 0)
+            & (str_array > 0)
         )
 
         rows, cols = np.where(valid)
