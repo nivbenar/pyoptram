@@ -6,22 +6,8 @@ import rasterio
 from rasterio.transform import xy
 
 
+# Normalize a single path or list of paths.
 def _as_path_list(paths, name):
-    """
-    Convert one path or an iterable of paths into a list of Path objects.
-
-    Parameters
-    ----------
-    paths : str, pathlib.Path, or iterable
-        A single raster path or a collection of raster paths.
-    name : str
-        The input name to use in error messages.
-
-    Returns
-    -------
-    list[pathlib.Path]
-        Normalized raster paths.
-    """
     if isinstance(paths, (str, Path)):
         return [Path(paths)]
 
@@ -33,21 +19,8 @@ def _as_path_list(paths, name):
     return path_list
 
 
+# Read raster band 1 and keep the metadata needed for alignment checks.
 def _read_band(path):
-    """
-    Read the first band of a raster and collect alignment metadata.
-
-    Parameters
-    ----------
-    path : str or pathlib.Path
-        Path to a single-band raster file.
-
-    Returns
-    -------
-    tuple
-        A NumPy array with nodata converted to NaN, and a metadata dictionary
-        containing shape, transform, CRS, and nodata values.
-    """
     with rasterio.open(path) as src:
         array = src.read(1).astype(np.float32)
         profile = {
@@ -68,30 +41,7 @@ def optram_ndvi_str(
     str_paths,
     output_csv=None,
 ):
-    """
-    Build a dataframe of paired NDVI and STR pixel values.
-
-    Parameters
-    ----------
-    ndvi_paths : str, pathlib.Path, or iterable
-        One or more NDVI raster paths.
-    str_paths : str, pathlib.Path, or iterable
-        One or more STR raster paths. The order must match ``ndvi_paths``.
-    output_csv : str or pathlib.Path, optional
-        If provided, save the dataframe to this CSV path.
-
-    Returns
-    -------
-    pandas.DataFrame
-        One row per valid paired pixel, with coordinates, NDVI, STR, source
-        index, raster row/column, and source file paths.
-
-    Raises
-    ------
-    ValueError
-        If the path lists have different lengths, or paired rasters do not
-        have matching shape, transform, or CRS.
-    """
+    # Build a dataframe of paired NDVI and STR pixel values.
     ndvi_path_list = _as_path_list(ndvi_paths, "ndvi_paths")
     str_path_list = _as_path_list(str_paths, "str_paths")
 

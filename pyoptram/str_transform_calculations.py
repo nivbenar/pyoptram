@@ -4,42 +4,14 @@ import numpy as np
 import rasterio
 
 
+# Calculate STR from SWIR reflectance values scaled to 0-1.
 def calculate_str(swir):
-    """
-    Calculate STR values from SWIR reflectance.
-
-    Parameters
-    ----------
-    swir : array-like
-        SWIR reflectance values scaled to 0-1.
-
-    Returns
-    -------
-    numpy.ndarray
-        STR values calculated as ``((1 - swir) ** 2) / (2 * swir)``.
-        Non-positive SWIR values are returned as NaN.
-    """
     with np.errstate(divide="ignore", invalid="ignore"):
         return np.where(swir > 0, ((1.0 - swir) ** 2) / (2.0 * swir), np.nan)
 
 
+# Find BOA files and create the STR output folder.
 def prepare_str_inputs(boa_dir, str_dir=None):
-    """
-    Prepare BOA input files and the output STR folder.
-
-    Parameters
-    ----------
-    boa_dir : str or pathlib.Path
-        Directory containing BOA GeoTIFF files.
-    str_dir : str or pathlib.Path, optional
-        Directory where STR files should be written. If omitted, a sibling
-        ``STR`` directory is created next to ``boa_dir``.
-
-    Returns
-    -------
-    tuple or None
-        ``(boa_list, str_dir)`` when BOA files are found, otherwise ``None``.
-    """
     boa_dir = Path(boa_dir)
 
     if not boa_dir.exists() or not boa_dir.is_dir():
@@ -56,24 +28,8 @@ def prepare_str_inputs(boa_dir, str_dir=None):
     return boa_list, str_dir
 
 
+# Convert one BOA raster into one STR raster.
 def process_boa_file(tif_path, str_dir, swir_band):
-    """
-    Read one BOA file, calculate STR, and save the result.
-
-    Parameters
-    ----------
-    tif_path : str or pathlib.Path
-        BOA raster path.
-    str_dir : str or pathlib.Path
-        Output directory for the STR raster.
-    swir_band : int
-        One-based raster band number to use as the SWIR band.
-
-    Returns
-    -------
-    str
-        Path to the written STR raster.
-    """
     with rasterio.open(tif_path) as src:
         if swir_band < 1 or swir_band > src.count:
             raise ValueError(
@@ -94,24 +50,8 @@ def process_boa_file(tif_path, str_dir, swir_band):
     return str(out_path)
 
 
+# Create STR rasters for every BOA raster in a folder.
 def optram_calculate_str(boa_dir, str_dir=None, swir_band=11):
-    """
-    Create STR raster files from BOA raster files.
-
-    Parameters
-    ----------
-    boa_dir : str or pathlib.Path
-        Directory containing BOA GeoTIFF files.
-    str_dir : str or pathlib.Path, optional
-        Directory where STR files should be saved.
-    swir_band : int, default 11
-        One-based band index to use for SWIR reflectance.
-
-    Returns
-    -------
-    list[str] or None
-        Paths to created STR rasters, or ``None`` when no BOA files are found.
-    """
     prepared = prepare_str_inputs(boa_dir, str_dir)
 
     if prepared is None:
