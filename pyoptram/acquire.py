@@ -31,6 +31,18 @@ def _raise_for_status(response, context):
 def get_cdse_token(client_id, client_secret):
     """
     Get an access token from Copernicus Data Space.
+
+    Parameters
+    ----------
+    client_id : str
+        Copernicus Data Space OAuth client ID.
+    client_secret : str
+        Copernicus Data Space OAuth client secret.
+
+    Returns
+    -------
+    str
+        Bearer access token used for catalog and process API requests.
     """
     response = requests.post(
         TOKEN_URL,
@@ -49,6 +61,18 @@ def get_cdse_token(client_id, client_secret):
 def validate_date(date_text, name):
     """
     Validate an ISO date string and return it unchanged.
+
+    Parameters
+    ----------
+    date_text : str
+        Date string expected in ``YYYY-MM-DD`` format.
+    name : str
+        Parameter name to include in validation errors.
+
+    Returns
+    -------
+    str
+        The original date string when valid.
     """
     try:
         datetime.strptime(date_text, "%Y-%m-%d")
@@ -142,6 +166,20 @@ def load_aoi(aoi):
 def prepare_output_folders(output_dir, veg_index="NDVI", only_vi_str=False):
     """
     Create output folders for BOA, vegetation index, and STR.
+
+    Parameters
+    ----------
+    output_dir : str or pathlib.Path
+        Root directory for downloaded and derived rasters.
+    veg_index : str, default "NDVI"
+        Vegetation index folder name.
+    only_vi_str : bool, default False
+        When True, create only vegetation index and STR folders.
+
+    Returns
+    -------
+    dict
+        Folder paths keyed by ``vi``, ``str``, and optionally ``boa``.
     """
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -163,6 +201,18 @@ def prepare_output_folders(output_dir, veg_index="NDVI", only_vi_str=False):
 def load_evalscript(script_name, swir_band=11):
     """
     Return the evalscript text for the requested product.
+
+    Parameters
+    ----------
+    script_name : {"NDVI", "STR", "BOA"}
+        Product type to request from the Sentinel Hub Process API.
+    swir_band : int, default 11
+        Sentinel-2 SWIR band number to use for STR, either 11 or 12.
+
+    Returns
+    -------
+    str
+        JavaScript evalscript sent to the Process API.
     """
     if script_name == "NDVI":
         return """
@@ -246,6 +296,22 @@ def _scene_tile(scene):
 
 
 def _filter_scenes_by_tile(scenes, tile):
+    """
+    Keep only scenes matching a Sentinel-2 MGRS tile.
+
+    Parameters
+    ----------
+    scenes : list[dict]
+        STAC scene features returned by the catalog API.
+    tile : str or None
+        Tile ID such as ``"36RXV"`` or ``"T36RXV"``. If None, no filtering
+        is applied.
+
+    Returns
+    -------
+    list[dict]
+        Filtered scene features.
+    """
     if tile is None:
         return scenes
 
@@ -264,6 +330,26 @@ def search_catalog(
 ):
     """
     Search Sentinel-2 L2A scenes that intersect the AOI.
+
+    Parameters
+    ----------
+    aoi_geometry : dict
+        GeoJSON geometry used as the catalog intersection filter.
+    from_date, to_date : str
+        Search date range in ``YYYY-MM-DD`` format.
+    token : str
+        CDSE bearer token.
+    max_cloud : int or float, default 20
+        Maximum catalog cloud cover percentage.
+    limit : int, default 20
+        Maximum number of scenes to return after tile filtering.
+    tile : str, optional
+        Optional Sentinel-2 MGRS tile filter.
+
+    Returns
+    -------
+    list[dict]
+        Catalog scene features.
     """
     headers = {"Authorization": f"Bearer {token}"}
     request_limit = max(limit, 100) if tile is not None else limit
@@ -295,6 +381,30 @@ def download_index(
 ):
     """
     Request one raster product from the Process API and save it to disk.
+
+    Parameters
+    ----------
+    aoi_geometry : dict
+        GeoJSON geometry used as the processing bounds.
+    scene_datetime : str
+        Scene timestamp from the catalog result.
+    script_name : {"NDVI", "STR", "BOA"}
+        Product to download.
+    output_path : str or pathlib.Path
+        GeoTIFF path to write.
+    token : str
+        CDSE bearer token.
+    swir_band : int, default 11
+        Sentinel-2 SWIR band for STR.
+    width, height : int
+        Output raster dimensions in pixels.
+    overwrite : bool, default False
+        When False, reuse an existing file at ``output_path``.
+
+    Returns
+    -------
+    str
+        Path to the downloaded or reused GeoTIFF.
     """
     output_path = Path(output_path)
 
@@ -340,6 +450,23 @@ def download_index(
 
 
 def _scene_record(scene, ndvi_path, str_path, boa_path=None):
+    """
+    Build a compact metadata record for one downloaded scene.
+
+    Parameters
+    ----------
+    scene : dict
+        STAC scene feature from the catalog API.
+    ndvi_path, str_path : str
+        Downloaded NDVI and STR raster paths.
+    boa_path : str, optional
+        Downloaded BOA raster path, when requested.
+
+    Returns
+    -------
+    dict
+        Scene ID, timestamp, cloud cover, tile, and output paths.
+    """
     properties = scene.get("properties", {})
     return {
         "id": scene.get("id"),
@@ -371,6 +498,39 @@ def acquire_optram_inputs(
 ):
     """
     Download OPTRAM input rasters from Copernicus Data Space.
+
+    Parameters
+    ----------
+    aoi : dict, str, pathlib.Path, list, or tuple
+        AOI as GeoJSON, vector file path, or bbox
+        ``(min_lon, min_lat, max_lon, max_lat)``.
+    from_date, to_date : str
+        Date range in ``YYYY-MM-DD`` format.
+    output_dir : str or pathlib.Path
+        Directory where NDVI, STR, and optionally BOA rasters are saved.
+    client_id, client_secret : str
+        Copernicus Data Space OAuth credentials.
+    veg_index : str, default "NDVI"
+        Vegetation index to download. Currently only NDVI is implemented.
+    swir_band : int, default 11
+        Sentinel-2 SWIR band used for STR, either 11 or 12.
+    max_cloud : int or float, default 20
+        Maximum catalog cloud cover percentage.
+    only_vi_str : bool, default True
+        When True, download only NDVI and STR. When False, also download BOA.
+    tile : str, optional
+        Optional Sentinel-2 MGRS tile filter.
+    limit : int, default 20
+        Maximum number of matching scenes to download.
+    width, height : int
+        Output raster dimensions in pixels, up to 2500.
+    overwrite : bool, default False
+        When False, skip downloads whose output files already exist.
+
+    Returns
+    -------
+    dict
+        Lists of NDVI, STR, BOA paths and a ``scenes`` metadata list.
     """
     if swir_band not in (11, 12):
         raise ValueError("swir_band must be 11 or 12")
