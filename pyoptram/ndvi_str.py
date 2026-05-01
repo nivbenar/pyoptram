@@ -3,6 +3,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import rasterio
+from rasterio.transform import xy
 
 
 def _as_path_list(paths, name):
@@ -33,7 +34,11 @@ def _read_band(path):
     return array, profile
 
 
-def optram_ndvi_str(ndvi_paths, str_paths, output_csv=None):
+def optram_ndvi_str(
+    ndvi_paths,
+    str_paths,
+    output_csv=None,
+):
     """
     Build a dataframe of paired NDVI and STR pixel values.
     """
@@ -67,10 +72,14 @@ def optram_ndvi_str(ndvi_paths, str_paths, output_csv=None):
             & (ndvi <= 1)
             & (str_array >= 0)
         )
+
         rows, cols = np.where(valid)
+        xs, ys = xy(ndvi_profile["transform"], rows, cols)
 
         frame = pd.DataFrame(
             {
+                "X": xs,
+                "Y": ys,
                 "NDVI": ndvi[valid],
                 "STR": str_array[valid],
                 "source_index": source_index,
