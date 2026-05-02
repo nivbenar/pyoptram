@@ -123,8 +123,13 @@ def load_aoi(aoi):
     )
 
 
-# Create output folders for VI, STR, and optionally BOA rasters.
-def prepare_output_folders(output_dir, veg_index="NDVI", only_vi_str=False):
+# Create output folders for VI, STR, and optionally BOA/SCL rasters.
+def prepare_output_folders(
+    output_dir,
+    veg_index="NDVI",
+    only_vi_str=False,
+    download_scl=False,
+):
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -136,17 +141,43 @@ def prepare_output_folders(output_dir, veg_index="NDVI", only_vi_str=False):
     if not only_vi_str:
         folders["boa"] = output_dir / "BOA"
 
+    if download_scl:
+        folders["scl"] = output_dir / "SCL"
+
     for folder in folders.values():
         folder.mkdir(parents=True, exist_ok=True)
 
     return folders
 
 
-# Return the Sentinel Hub evalscript for NDVI, STR, or BOA.
-def load_evalscript(script_name, swir_band=11):
+# Return the Sentinel Hub evalscript for NDVI, STR, BOA, or SCL.
+def load_evalscript(script_name, swir_band=11, scm_mask=False, scl_keep=None):
+    """Return a Sentinel Hub evalscript used by the Process API."""
     if script_name == "NDVI":
+        if scm_mask:
+            keep = [2, 4, 5, 10] if scl_keep is None else sorted(set(scl_keep))
+            keep_js = ", ".join(str(int(value)) for value in keep)
+            return f"""
+//VERSION=3
+// Calculate NDVI and mask pixels using Sentinel-2 SCL classes.
+function setup() {{
+    return {{
+        input: [{{ bands: ["B04", "B08", "SCL"] }}],
+        output: {{ bands: 1, sampleType: "FLOAT32" }}
+    }};
+}}
+function evaluatePixel(sample) {{
+    let ndvi = (sample.B08 - sample.B04) / (sample.B08 + sample.B04);
+    if ([{keep_js}].includes(sample.SCL)) {{
+        return [ndvi];
+    }}
+    return [NaN];
+}}
+""".strip()
+
         return """
 //VERSION=3
+// Calculate NDVI from Sentinel-2 red and near-infrared bands.
 function setup() {
     return {
         input: [{ bands: ["B04", "B08"] }],
@@ -163,6 +194,7 @@ function evaluatePixel(sample) {
         band = f"B{swir_band}"
         return f"""
 //VERSION=3
+// Calculate SWIR Transformed Reflectance from Sentinel-2 B11 or B12.
 function setup() {{
     return {{
         input: [{{ bands: ["{band}"], units: "DN" }}],
@@ -183,6 +215,7 @@ function evaluatePixel(sample) {{
     if script_name == "BOA":
         return """
 //VERSION=3
+// Download Sentinel-2 bottom-of-atmosphere bands as one multiband raster.
 function setup() {
     return {
         input: [{
@@ -199,6 +232,21 @@ function evaluatePixel(sample) {
         sample.B05, sample.B06, sample.B07, sample.B08,
         sample.B8A, sample.B09, sample.B11, sample.B12
     ];
+}
+""".strip()
+
+    if script_name == "SCL":
+        return """
+//VERSION=3
+// Download the Sentinel-2 Scene Classification Layer.
+function setup() {
+    return {
+        input: [{ bands: ["SCL"] }],
+        output: { bands: 1, sampleType: "UINT8" }
+    };
+}
+function evaluatePixel(sample) {
+    return [sample.SCL];
 }
 """.strip()
 
@@ -269,6 +317,8 @@ def download_index(
     width=DEFAULT_MAX_SIZE,
     height=DEFAULT_MAX_SIZE,
     overwrite=False,
+    scm_mask=False,
+    scl_keep=None,
 ):
     # Download one GeoTIFF product with the Sentinel Hub Process API.
     output_path = Path(output_path)
@@ -304,7 +354,12 @@ def download_index(
             "height": height,
             "responses": [{"identifier": "default", "format": {"type": "image/tiff"}}],
         },
-        "evalscript": load_evalscript(script_name, swir_band=swir_band),
+        "evalscript": load_evalscript(
+            script_name,
+            swir_band=swir_band,
+            scm_mask=scm_mask,
+            scl_keep=scl_keep,
+        ),
     }
 
     response = requests.post(PROCESS_URL, headers=headers, json=payload, timeout=180)
@@ -315,7 +370,7 @@ def download_index(
 
 
 # Build a small metadata record for a downloaded scene.
-def _scene_record(scene, ndvi_path, str_path, boa_path=None):
+def _scene_record(scene, ndvi_path, str_path, boa_path=None, scl_path=None):
     properties = scene.get("properties", {})
     return {
         "id": scene.get("id"),
@@ -325,6 +380,7 @@ def _scene_record(scene, ndvi_path, str_path, boa_path=None):
         "NDVI": ndvi_path,
         "STR": str_path,
         "BOA": boa_path,
+        "SCL": scl_path,
     }
 
 
@@ -344,6 +400,9 @@ def acquire_optram_inputs(
     width=DEFAULT_MAX_SIZE,
     height=DEFAULT_MAX_SIZE,
     overwrite=False,
+    scm_mask=True,
+    download_scl=False,
+    scl_keep=None,
 ):
     # Download paired NDVI and STR rasters for OPTRAM inputs.
     if swir_band not in (11, 12):
@@ -371,6 +430,7 @@ def acquire_optram_inputs(
         output_dir,
         veg_index=veg_index,
         only_vi_str=only_vi_str,
+        download_scl=download_scl,
     )
 
     scenes = search_catalog(
@@ -384,9 +444,9 @@ def acquire_optram_inputs(
     )
 
     if not scenes:
-        return {"NDVI": [], "STR": [], "BOA": [], "scenes": []}
+        return {"NDVI": [], "STR": [], "BOA": [], "SCL": [], "scenes": []}
 
-    results = {"NDVI": [], "STR": [], "BOA": [], "scenes": []}
+    results = {"NDVI": [], "STR": [], "BOA": [], "SCL": [], "scenes": []}
 
     for scene in scenes:
         scene_id = scene["id"]
@@ -406,6 +466,8 @@ def acquire_optram_inputs(
             width=width,
             height=height,
             overwrite=overwrite,
+            scm_mask=scm_mask,
+            scl_keep=scl_keep,
         )
 
         str_file = download_index(
@@ -421,6 +483,7 @@ def acquire_optram_inputs(
         )
 
         boa_file = None
+        scl_file = None
 
         if not only_vi_str and "boa" in folders:
             boa_path = folders["boa"] / f"BOA_{safe_time}_{scene_id}.tif"
@@ -436,11 +499,32 @@ def acquire_optram_inputs(
                 overwrite=overwrite,
             )
 
+        if download_scl and "scl" in folders:
+            scl_path = folders["scl"] / f"SCL_{safe_time}_{scene_id}.tif"
+            scl_file = download_index(
+                aoi_geometry=aoi_geometry,
+                scene_datetime=scene_datetime,
+                script_name="SCL",
+                output_path=scl_path,
+                token=token,
+                swir_band=swir_band,
+                width=width,
+                height=height,
+                overwrite=overwrite,
+            )
+
         results["NDVI"].append(ndvi_file)
         results["STR"].append(str_file)
         if boa_file is not None:
             results["BOA"].append(boa_file)
+        if scl_file is not None:
+            results["SCL"].append(scl_file)
 
-        results["scenes"].append(_scene_record(scene, ndvi_file, str_file, boa_file))
+        results["scenes"].append(
+            _scene_record(scene, ndvi_file, str_file, boa_file, scl_file)
+        )
+
+    if scl_keep is not None:
+        results["scl_keep"] = sorted(int(value) for value in set(scl_keep))
 
     return results
