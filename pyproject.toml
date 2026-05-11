@@ -9,11 +9,20 @@ description = "Python implementation of the OPTRAM soil moisture model"
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
+    "matplotlib",
     "numpy",
     "pandas",
     "rasterio",
     "requests",
 ]
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
 
 [tool.setuptools.packages.find]
 where = ["."]
