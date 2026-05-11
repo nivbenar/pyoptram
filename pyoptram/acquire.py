@@ -151,15 +151,15 @@ def prepare_output_folders(
 
 
 # Return the Sentinel Hub evalscript for NDVI, STR, BOA, or SCL.
-def load_evalscript(script_name, swir_band=11, scm_mask=False, scl_keep=None):
+def load_evalscript(script_name, swir_band=11, scl_mask=False, scl_keep=None):
     """Return a Sentinel Hub evalscript used by the Process API."""
     if script_name == "NDVI":
-        if scm_mask:
-            keep = [2, 4, 5, 10] if scl_keep is None else sorted(set(scl_keep))
+        if scl_mask:
+            keep = [4, 5] if scl_keep is None else sorted(set(scl_keep))
             keep_js = ", ".join(str(int(value)) for value in keep)
             return f"""
 //VERSION=3
-// Calculate NDVI and mask pixels using Sentinel-2 SCL classes.
+// Calculate NDVI and keep selected Sentinel-2 SCL classes.
 function setup() {{
     return {{
         input: [{{ bands: ["B04", "B08", "SCL"] }}],
@@ -317,7 +317,7 @@ def download_index(
     width=DEFAULT_MAX_SIZE,
     height=DEFAULT_MAX_SIZE,
     overwrite=False,
-    scm_mask=False,
+    scl_mask=False,
     scl_keep=None,
 ):
     # Download one GeoTIFF product with the Sentinel Hub Process API.
@@ -357,7 +357,7 @@ def download_index(
         "evalscript": load_evalscript(
             script_name,
             swir_band=swir_band,
-            scm_mask=scm_mask,
+            scl_mask=scl_mask,
             scl_keep=scl_keep,
         ),
     }
@@ -400,7 +400,7 @@ def acquire_optram_inputs(
     width=DEFAULT_MAX_SIZE,
     height=DEFAULT_MAX_SIZE,
     overwrite=False,
-    scm_mask=True,
+    scl_mask=True,
     download_scl=False,
     scl_keep=None,
 ):
@@ -466,7 +466,7 @@ def acquire_optram_inputs(
             width=width,
             height=height,
             overwrite=overwrite,
-            scm_mask=scm_mask,
+            scl_mask=scl_mask,
             scl_keep=scl_keep,
         )
 
